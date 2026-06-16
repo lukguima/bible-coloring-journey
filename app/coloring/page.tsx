@@ -96,7 +96,7 @@ export default function ColoringPage() {
     </head><body>
       <div class="no-print" style="padding:16px;text-align:center;background:#F8F1E7;border-bottom:1px solid #EFE4D0;">
         <button onclick="window.print()" style="padding:10px 24px;background:#263B5E;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">
-          🖨️ Imprimir / Salvar como PDF
+          🖨️ Print / Save as PDF
         </button>
       </div>
       ${svgPages.join("")}
@@ -136,7 +136,7 @@ export default function ColoringPage() {
         <div style={{ backgroundColor: "#FFFFFF", borderRadius: "24px", padding: "24px", boxShadow: "0 4px 20px rgba(122,78,45,0.08)" }}>
           {customImage && (
             <div style={{ marginBottom: "12px", padding: "8px 12px", backgroundColor: "#F0FDF4", borderRadius: "8px", fontSize: "12px", color: "#166534", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: "6px" }}>
-              ✨ Usando imagem personalizada — clique para pintar!
+              ✨ Custom image active — click any area to fill with color!
             </div>
           )}
           <ColoringCanvas
@@ -168,7 +168,7 @@ export default function ColoringPage() {
               gap: "8px",
             }}
           >
-            📄 Baixar todas as páginas como PDF
+            📄 Download All Pages as PDF
           </button>
         </div>
 
