@@ -4,6 +4,7 @@ import { useState } from "react";
 import ColoringCanvas from "@/components/coloring/ColoringCanvas";
 import ColoringPageSelector from "@/components/coloring/ColoringPageSelector";
 import { useProgress } from "@/hooks/useProgress";
+import { useColoringImages } from "@/hooks/useColoringImages";
 import Link from "next/link";
 
 const PAGES = [
@@ -66,8 +67,47 @@ const PAGES = [
 export default function ColoringPage() {
   const [selectedPageId, setSelectedPageId] = useState("creation");
   const { saveColoringProgress, getColoringProgress } = useProgress();
+  const { getImage, isLoaded } = useColoringImages();
 
   const selectedPage = PAGES.find((p) => p.id === selectedPageId)!;
+  const customImage = isLoaded ? getImage(selectedPage.id) : undefined;
+
+  const handleDownloadAll = () => {
+    const svgPages = PAGES.map((page) => {
+      const savedColors = getColoringProgress(page.id) || {};
+      const paths = page.areas
+        .map(
+          (area) =>
+            `<path d="${area.path}" fill="${savedColors[area.id] || "#FAFAFA"}" stroke="#2D2D2D" stroke-width="1.5" stroke-linejoin="round"/>`
+        )
+        .join("\n");
+      return `
+        <div style="page-break-after:always;padding:20px;display:flex;flex-direction:column;align-items:center;">
+          <h2 style="font-family:Georgia,serif;color:#263B5E;margin-bottom:16px;">${page.emoji} ${page.title}</h2>
+          <svg viewBox="0 0 400 300" style="width:100%;max-width:600px;">
+            ${paths}
+          </svg>
+        </div>
+      `;
+    });
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bible Coloring Journey — All Pages</title>
+      <style>body{margin:0;background:#fff;} @media print{.no-print{display:none}}</style>
+    </head><body>
+      <div class="no-print" style="padding:16px;text-align:center;background:#F8F1E7;border-bottom:1px solid #EFE4D0;">
+        <button onclick="window.print()" style="padding:10px 24px;background:#263B5E;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">
+          🖨️ Imprimir / Salvar como PDF
+        </button>
+      </div>
+      ${svgPages.join("")}
+    </body></html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+  };
 
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#F8F1E7" }}>
@@ -94,34 +134,53 @@ export default function ColoringPage() {
 
         {/* Canvas */}
         <div style={{ backgroundColor: "#FFFFFF", borderRadius: "24px", padding: "24px", boxShadow: "0 4px 20px rgba(122,78,45,0.08)" }}>
+          {customImage && (
+            <div style={{ marginBottom: "12px", padding: "8px 12px", backgroundColor: "#F0FDF4", borderRadius: "8px", fontSize: "12px", color: "#166534", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: "6px" }}>
+              ✨ Usando imagem personalizada — clique para pintar!
+            </div>
+          )}
           <ColoringCanvas
             pageId={selectedPage.id}
             areas={selectedPage.areas}
             title={selectedPage.title}
             savedColors={getColoringProgress(selectedPage.id)}
             onSave={(colors) => saveColoringProgress(selectedPage.id, colors)}
+            customImageUrl={customImage}
           />
         </div>
 
+        {/* Download all PDF */}
+        <div style={{ marginTop: "20px", textAlign: "center" }}>
+          <button
+            onClick={handleDownloadAll}
+            style={{
+              padding: "12px 28px",
+              backgroundColor: "#8E9672",
+              color: "#FFFFFF",
+              border: "none",
+              borderRadius: "24px",
+              fontSize: "14px",
+              fontWeight: 700,
+              fontFamily: "'Nunito', sans-serif",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            📄 Baixar todas as páginas como PDF
+          </button>
+        </div>
+
         {/* Info */}
-        <div
-          style={{
-            marginTop: "24px",
-            padding: "20px",
-            backgroundColor: "#A9C8D822",
-            borderRadius: "16px",
-            display: "flex",
-            gap: "12px",
-            alignItems: "flex-start",
-          }}
-        >
+        <div style={{ marginTop: "24px", padding: "20px", backgroundColor: "#A9C8D822", borderRadius: "16px", display: "flex", gap: "12px", alignItems: "flex-start" }}>
           <span style={{ fontSize: "24px" }}>💡</span>
           <div>
             <p style={{ fontSize: "14px", color: "#263B5E", fontFamily: "'Nunito', sans-serif", fontWeight: 700, marginBottom: "4px" }}>
               How to use the Coloring Studio
             </p>
             <p style={{ fontSize: "13px", color: "#7A4E2D", fontFamily: "'Nunito', sans-serif", lineHeight: 1.6 }}>
-              Select a color from the palette, then click any area of the picture to fill it with that color. Click "Print Page" to print a black & white version for real coloring, or download the PDF.
+              Select a color from the palette, then click any area of the picture to fill it with that color. Use the download button to save your colored page, or download all pages as PDF.
             </p>
           </div>
         </div>
@@ -133,16 +192,7 @@ export default function ColoringPage() {
           </p>
           <Link
             href="/printables"
-            style={{
-              padding: "12px 24px",
-              backgroundColor: "#263B5E",
-              color: "#FFFFFF",
-              borderRadius: "24px",
-              fontSize: "14px",
-              fontWeight: 700,
-              fontFamily: "'Nunito', sans-serif",
-              textDecoration: "none",
-            }}
+            style={{ padding: "12px 24px", backgroundColor: "#263B5E", color: "#FFFFFF", borderRadius: "24px", fontSize: "14px", fontWeight: 700, fontFamily: "'Nunito', sans-serif", textDecoration: "none" }}
           >
             View All Printables →
           </Link>

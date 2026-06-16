@@ -10,6 +10,7 @@ interface PricingCardProps {
   ctaHref: string;
   highlighted?: boolean;
   badge?: string;
+  onCtaClick?: () => void;
 }
 
 export default function PricingCard({
@@ -21,6 +22,7 @@ export default function PricingCard({
   ctaHref,
   highlighted = false,
   badge,
+  onCtaClick,
 }: PricingCardProps) {
   return (
     <div
@@ -106,7 +108,25 @@ export default function PricingCard({
         ))}
       </ul>
 
-      {ctaHref !== "#" ? (
+      {onCtaClick ? (
+        <button
+          onClick={onCtaClick}
+          style={{
+            width: "100%",
+            padding: "14px",
+            backgroundColor: highlighted ? "#D8B76A" : "#263B5E",
+            color: highlighted ? "#263B5E" : "#FFFFFF",
+            border: "none",
+            borderRadius: "14px",
+            fontSize: "15px",
+            fontWeight: 800,
+            fontFamily: "'Nunito', sans-serif",
+            cursor: "pointer",
+          }}
+        >
+          {ctaLabel}
+        </button>
+      ) : (
         <Link
           href={ctaHref}
           style={{
@@ -124,23 +144,6 @@ export default function PricingCard({
         >
           {ctaLabel}
         </Link>
-      ) : (
-        <button
-          style={{
-            width: "100%",
-            padding: "14px",
-            backgroundColor: highlighted ? "#D8B76A" : "#263B5E",
-            color: highlighted ? "#263B5E" : "#FFFFFF",
-            border: "none",
-            borderRadius: "14px",
-            fontSize: "15px",
-            fontWeight: 800,
-            fontFamily: "'Nunito', sans-serif",
-            cursor: "pointer",
-          }}
-        >
-          {ctaLabel}
-        </button>
       )}
     </div>
   );

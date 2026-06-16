@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Library, Package, Palette, BookOpen,
   Gamepad2, FileText, Users, Megaphone, Rocket,
-  Tag, UserCheck, Image, BarChart3, Settings, ExternalLink, X
+  Tag, UserCheck, Image, BarChart3, Settings, ExternalLink, X, Brush
 } from "lucide-react";
 
 const NAV = [
@@ -13,6 +13,7 @@ const NAV = [
   { href: "/dashboard/collections", label: "Collections", icon: Library },
   { href: "/dashboard/products", label: "Products", icon: Package },
   { href: "/dashboard/drawings", label: "Drawings", icon: Palette },
+  { href: "/dashboard/coloring", label: "Coloring Pages", icon: Brush },
   { href: "/dashboard/stories", label: "Stories", icon: BookOpen },
   { href: "/dashboard/games", label: "Games", icon: Gamepad2 },
   { href: "/dashboard/printables", label: "Printables", icon: FileText },

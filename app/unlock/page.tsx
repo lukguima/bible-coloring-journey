@@ -73,16 +73,17 @@ export default function UnlockPage() {
       <div style={{ maxWidth: "960px", margin: "0 auto", padding: "64px 16px 80px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "24px", marginBottom: "56px" }}>
           {PLANS.map((plan) => (
-            <div key={plan.plan} onClick={() => plan.ctaHref === "#" && openCheckout()}>
+            <div key={plan.plan}>
               <PricingCard
                 plan={plan.plan}
                 price={plan.price}
                 description={plan.description}
                 features={plan.features}
                 ctaLabel={plan.ctaLabel}
-                ctaHref={plan.ctaHref === "#" ? "#" : plan.ctaHref}
+                ctaHref={plan.ctaHref}
                 highlighted={plan.highlighted}
                 badge={plan.badge}
+                onCtaClick={plan.ctaHref === "#" ? openCheckout : undefined}
               />
             </div>
           ))}
