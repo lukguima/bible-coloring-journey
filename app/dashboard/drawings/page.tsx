@@ -28,7 +28,7 @@ export default function DrawingsPage() {
       drawingId: d.id,
       collectionId: d.collectionId,
       title: `${d.title} Coloring Page`,
-      prompt: (d as Record<string, unknown>).coloringPrompt as string || d.description || `Coloring page illustration for "${d.title}" — ${d.bibleReference}. ${d.lesson || ""}`,
+      prompt: d.description || `Coloring page illustration for "${d.title}" — ${d.bibleReference}. ${d.lesson || ""}`,
       negativePrompt: "text, words, letters, numbers, watermark, signature, color fills, grayscale, shading",
       imageType: "coloring_page",
       priority: "normal",
