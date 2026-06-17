@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ImagePlus, Download, Upload, Trash2, Copy, Check, ExternalLink, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle, Filter, Layers } from "lucide-react";
+import { useState, useMemo, useRef, useCallback } from "react";
+import { ImagePlus, Download, Upload, Trash2, Copy, Check, ExternalLink, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle, Filter, Layers, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useImageQueue } from "@/hooks/useImageQueue";
@@ -69,6 +69,9 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
 }) {
   const [draft, setDraft] = useState({ ...job });
   const [copied, setCopied] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = () => {
     onUpdate(job.id, draft);
@@ -81,13 +84,110 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
     setTimeout(() => setCopied(false), 1500);
   };
 
+  const processFile = useCallback((file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const updated = { ...draft, generatedImageUrl: dataUrl, status: "uploaded" as ImageJobStatus };
+      setDraft(updated);
+      onUpdate(job.id, { generatedImageUrl: dataUrl, status: "uploaded" });
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
+  }, [draft, job.id, onUpdate]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  };
+
+  const handleDownloadImage = () => {
+    if (!draft.generatedImageUrl) return;
+    const a = document.createElement("a");
+    a.href = draft.generatedImageUrl;
+    a.download = `${job.title.replace(/\s+/g, "-").toLowerCase()}.png`;
+    a.click();
+  };
+
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, backgroundColor: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px" }} onClick={onClose}>
-      <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", maxWidth: "560px", width: "100%", maxHeight: "90vh", overflowY: "auto", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
+      <div style={{ backgroundColor: "#FFFFFF", borderRadius: "16px", maxWidth: "600px", width: "100%", maxHeight: "90vh", overflowY: "auto", padding: "24px" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "20px" }}>
           <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: "20px", color: "#263B5E" }}>{job.title}</h3>
-          <StatusBadge status={job.status} />
+          <StatusBadge status={draft.status} />
         </div>
+
+        {/* Upload area — always visible */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            marginBottom: "16px",
+            border: `2px dashed ${dragOver ? "#263B5E" : "#E5E7EB"}`,
+            borderRadius: "12px",
+            backgroundColor: dragOver ? "#F0F4FF" : "#FAFAFA",
+            cursor: "pointer",
+            transition: "all 0.15s",
+            overflow: "hidden",
+            minHeight: draft.generatedImageUrl ? "auto" : "110px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {draft.generatedImageUrl ? (
+            <div style={{ width: "100%", position: "relative" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={draft.generatedImageUrl}
+                alt="Uploaded"
+                style={{ width: "100%", maxHeight: "280px", objectFit: "contain", display: "block", borderRadius: "10px" }}
+              />
+              <div style={{ position: "absolute", top: "8px", right: "8px", display: "flex", gap: "6px" }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDownloadImage(); }}
+                  style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "rgba(0,0,0,0.6)", color: "#FFFFFF", fontSize: "11px", fontFamily: "'Nunito', sans-serif", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <Download size={11} /> Download
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDraft({ ...draft, generatedImageUrl: "" }); onUpdate(job.id, { generatedImageUrl: "" }); }}
+                  style={{ padding: "6px 10px", border: "none", borderRadius: "8px", backgroundColor: "rgba(220,38,38,0.85)", color: "#FFFFFF", fontSize: "11px", fontFamily: "'Nunito', sans-serif", fontWeight: 700, cursor: "pointer" }}
+                >
+                  Remove
+                </button>
+              </div>
+              <div style={{ padding: "6px 10px", fontSize: "11px", color: "#6B7280", fontFamily: "'Nunito', sans-serif", textAlign: "center" }}>
+                Clique para trocar a imagem
+              </div>
+            </div>
+          ) : (
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              {uploading ? (
+                <div style={{ fontSize: "13px", color: "#6B7280", fontFamily: "'Nunito', sans-serif" }}>Carregando...</div>
+              ) : (
+                <>
+                  <ImageIcon size={28} color="#D1D5DB" style={{ marginBottom: "8px" }} />
+                  <div style={{ fontSize: "13px", fontWeight: 700, color: "#374151", fontFamily: "'Nunito', sans-serif" }}>Upload manual de imagem</div>
+                  <div style={{ fontSize: "11px", color: "#9CA3AF", fontFamily: "'Nunito', sans-serif", marginTop: "4px" }}>Arraste e solte ou clique para selecionar · PNG, JPG, WebP</div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
 
         <FieldGroup label="Title">
           <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} style={inputSt} />
@@ -122,11 +222,6 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
             </select>
           </FieldGroup>
         </div>
-        {draft.generatedImageUrl && (
-          <FieldGroup label="Generated Image URL">
-            <input value={draft.generatedImageUrl} onChange={(e) => setDraft({ ...draft, generatedImageUrl: e.target.value })} style={inputSt} />
-          </FieldGroup>
-        )}
         <FieldGroup label="Notes">
           <textarea value={draft.notes || ""} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} style={{ ...inputSt, height: "60px", resize: "vertical" }} placeholder="Optional notes..." />
         </FieldGroup>
@@ -151,18 +246,42 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
             Mark as Sent to Flow
           </button>
         )}
-        {(job.status === "generated" || job.status === "uploaded") && (
+        {(draft.status === "generated" || draft.status === "uploaded") && (
           <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
             <button onClick={() => { onUpdateStatus(job.id, "approved"); onClose(); }} style={{ flex: 1, padding: "10px", border: "none", borderRadius: "10px", backgroundColor: "#16A34A", color: "#FFFFFF", fontWeight: 700, fontSize: "13px", fontFamily: "'Nunito', sans-serif", cursor: "pointer" }}>
-              Approve
+              ✓ Approve
             </button>
             <button onClick={() => { const r = prompt("Rejection reason (optional):"); onUpdateStatus(job.id, "rejected", { errorMessage: r || "Rejected" }); onClose(); }} style={{ flex: 1, padding: "10px", border: "none", borderRadius: "10px", backgroundColor: "#EF4444", color: "#FFFFFF", fontWeight: 700, fontSize: "13px", fontFamily: "'Nunito', sans-serif", cursor: "pointer" }}>
-              Reject
+              ✕ Reject
             </button>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function QuickUploadButton({ jobId, onUpload }: { jobId: string; onUpload: (id: string, dataUrl: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => onUpload(jobId, ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+  return (
+    <>
+      <button
+        onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
+        title="Upload imagem manualmente"
+        style={{ padding: "4px 8px", border: "1px solid #E5E7EB", borderRadius: "6px", backgroundColor: "#FFFFFF", cursor: "pointer", color: "#6B7280", display: "flex", alignItems: "center", gap: "4px", fontSize: "10px", fontFamily: "'Nunito', sans-serif", fontWeight: 700 }}
+      >
+        <Upload size={11} /> Upload
+      </button>
+      <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={handleChange} />
+    </>
   );
 }
 
@@ -176,6 +295,12 @@ export default function ImageQueuePage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+
+  const handleQuickUpload = useCallback((jobId: string, dataUrl: string) => {
+    updateJob(jobId, { generatedImageUrl: dataUrl, status: "uploaded" });
+    showToast("Imagem carregada! Status → Uploaded.");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateJob]);
 
   const metrics = getMetrics();
 
@@ -311,9 +436,14 @@ export default function ImageQueuePage() {
                   <div style={{ fontSize: "11px", color: "#9CA3AF", fontFamily: "'Nunito', sans-serif", marginTop: "2px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{job.prompt.slice(0, 80)}{job.prompt.length > 80 ? "…" : ""}</div>
                 </div>
                 <div style={{ display: "flex", gap: "6px", alignItems: "center", flexShrink: 0 }}>
+                  {job.generatedImageUrl && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={job.generatedImageUrl} alt="" style={{ width: "32px", height: "32px", objectFit: "cover", borderRadius: "4px", border: "1px solid #E5E7EB" }} />
+                  )}
                   <span style={{ fontSize: "10px", color: "#6B7280", fontFamily: "'Nunito', sans-serif", backgroundColor: "#F3F4F6", padding: "2px 8px", borderRadius: "20px" }}>
                     {job.orientation === "PORTRAIT" ? "↕ Portrait" : "↔ Landscape"}
                   </span>
+                  <QuickUploadButton jobId={job.id} onUpload={handleQuickUpload} />
                   <StatusBadge status={job.status} />
                 </div>
               </div>
