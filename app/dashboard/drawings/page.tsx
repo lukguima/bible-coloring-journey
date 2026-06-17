@@ -8,16 +8,36 @@ import ConfirmDeleteDialog from "@/components/dashboard/ConfirmDeleteDialog";
 import FormModal from "@/components/dashboard/FormModal";
 import { FormField, Input, Textarea, Select } from "@/components/dashboard/FormField";
 import { useDrawings } from "@/hooks/useAdminData";
-import { Edit2, Trash2, Palette } from "lucide-react";
+import { useImageQueue } from "@/hooks/useImageQueue";
+import { Edit2, Trash2, Palette, SendHorizontal } from "lucide-react";
 import type { Drawing } from "@/types";
 
 export default function DrawingsPage() {
   const { data, create, update, remove } = useDrawings();
+  const { createJob } = useImageQueue();
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<Drawing | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState<Partial<Drawing>>({});
+  const [queuedId, setQueuedId] = useState<string | null>(null);
+
+  const sendToQueue = (d: Drawing) => {
+    createJob({
+      source: "drawings",
+      drawingId: d.id,
+      collectionId: d.collectionId,
+      title: `${d.title} Coloring Page`,
+      prompt: (d as Record<string, unknown>).coloringPrompt as string || d.description || `Coloring page illustration for "${d.title}" — ${d.bibleReference}. ${d.lesson || ""}`,
+      negativePrompt: "text, words, letters, numbers, watermark, signature, color fills, grayscale, shading",
+      imageType: "coloring_page",
+      priority: "normal",
+      status: "pending",
+      notes: `Drawing ID: ${d.id}`,
+    });
+    setQueuedId(d.id);
+    setTimeout(() => setQueuedId(null), 2000);
+  };
 
   const filtered = data.filter((d) => d.title.toLowerCase().includes(search.toLowerCase()));
 
@@ -68,6 +88,9 @@ export default function DrawingsPage() {
                     <td style={{ padding: "12px 16px" }}>
                       <div style={{ display: "flex", gap: "6px" }}>
                         <button onClick={() => openEdit(d)} style={{ padding: "5px 8px", border: "1px solid #E5E7EB", borderRadius: "6px", backgroundColor: "#FFFFFF", cursor: "pointer", color: "#6B7280" }}><Edit2 size={13} /></button>
+                        <button onClick={() => sendToQueue(d)} title="Send to Image Queue" style={{ padding: "5px 8px", border: "none", borderRadius: "6px", backgroundColor: queuedId === d.id ? "#16A34A" : "#7C3AED", cursor: "pointer", color: "#FFFFFF" }}>
+                          <SendHorizontal size={13} />
+                        </button>
                         <button onClick={() => setDeleteId(d.id)} style={{ padding: "5px 8px", border: "1px solid #FEE2E2", borderRadius: "6px", backgroundColor: "#FFFFFF", cursor: "pointer", color: "#EF4444" }}><Trash2 size={13} /></button>
                       </div>
                     </td>

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, Copy, Check, RefreshCw, Download, Upload, ChevronRight, Plus, X, Edit2, Save } from "lucide-react";
+import { Sparkles, Copy, Check, RefreshCw, Download, Upload, ChevronRight, Plus, X, Edit2, Save, SendHorizontal } from "lucide-react";
+import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { useContentEngine } from "@/hooks/useContentEngine";
+import { useImageQueue } from "@/hooks/useImageQueue";
 import { generateAssetsFromBrief } from "@/lib/content-engine/generators";
 import type { StoryBrief, GeneratedAsset, ContentEngineProject } from "@/types/content-engine";
 
@@ -131,15 +133,18 @@ function AssetCard({
   onCopy,
   onEdit,
   onRegenerate,
+  onSendToQueue,
 }: {
   asset: GeneratedAsset;
   onCopy: (content: string) => void;
   onEdit: (id: string, content: string) => void;
   onRegenerate?: () => void;
+  onSendToQueue?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(asset.content);
   const [copied, setCopied] = useState(false);
+  const [queued, setQueued] = useState(false);
 
   const isJson = asset.format === "json";
 
@@ -184,6 +189,11 @@ function AssetCard({
               <RefreshCw size={11} />
             </button>
           )}
+          {onSendToQueue && (
+            <button onClick={() => { onSendToQueue(); setQueued(true); setTimeout(() => setQueued(false), 2000); }} title="Send to Image Queue" style={{ padding: "5px 10px", border: "none", borderRadius: "6px", backgroundColor: queued ? "#16A34A" : "#7C3AED", cursor: "pointer", color: "#FFFFFF", fontSize: "11px", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: "4px", fontWeight: 700 }}>
+              {queued ? <Check size={11} /> : <SendHorizontal size={11} />} {queued ? "Queued!" : "→ Queue"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -211,6 +221,7 @@ function AssetCard({
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function ContentEnginePage() {
   const { projects, generateAssets, updateAsset, publishAssets, exportProjectAsJson, exportProjectAsMarkdown, resetEngine } = useContentEngine();
+  const { createJobsFromAssets } = useImageQueue();
   const [brief, setBrief] = useState<Partial<StoryBrief>>(EMPTY_BRIEF);
   const [currentProject, setCurrentProject] = useState<ContentEngineProject | null>(null);
   const [activeTab, setActiveTab] = useState("story");
@@ -517,9 +528,25 @@ export default function ContentEnginePage() {
                 ))}
 
                 {/* Image Prompts */}
-                {activeTab === "images" && getAssets(["coloring_prompt", "verse_card_prompt", "activity_prompt"]).map((a) => (
-                  <AssetCard key={a.id} asset={a} onCopy={() => showToast("Copied!")} onEdit={handleUpdateAsset} />
-                ))}
+                {activeTab === "images" && (
+                  <>
+                    <div style={{ marginBottom: "12px", padding: "10px 14px", backgroundColor: "#F5F3FF", borderRadius: "10px", fontSize: "12px", color: "#6D28D9", fontFamily: "'Nunito', sans-serif", display: "flex", alignItems: "center", gap: "8px" }}>
+                      <SendHorizontal size={13} /> Use <strong>→ Queue</strong> to send prompts to the Image Queue for processing with the Flow extension. Coloring pages will automatically use <strong>Portrait</strong> format.
+                    </div>
+                    {getAssets(["coloring_prompt", "verse_card_prompt", "activity_prompt"]).map((a) => (
+                      <AssetCard
+                        key={a.id}
+                        asset={a}
+                        onCopy={() => showToast("Copied!")}
+                        onEdit={handleUpdateAsset}
+                        onSendToQueue={() => {
+                          createJobsFromAssets([a], { collectionId: currentProject?.brief.collectionId, storyId: currentProject?.id });
+                          showToast(`"${a.title}" sent to Image Queue!`);
+                        }}
+                      />
+                    ))}
+                  </>
+                )}
 
                 {/* Games */}
                 {activeTab === "games" && getAssets(["quiz_config", "matching_game_config", "find_object_game_config"]).map((a) => (
