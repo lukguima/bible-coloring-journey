@@ -140,6 +140,7 @@ export default function ColoringPage() {
             </div>
           )}
           <ColoringCanvas
+            key={selectedPage.id}
             pageId={selectedPage.id}
             areas={selectedPage.areas}
             title={selectedPage.title}

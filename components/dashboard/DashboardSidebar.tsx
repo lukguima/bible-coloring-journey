@@ -5,11 +5,12 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, Library, Package, Palette, BookOpen,
   Gamepad2, FileText, Users, Megaphone, Rocket,
-  Tag, UserCheck, Image, BarChart3, Settings, ExternalLink, X, Brush
+  Tag, UserCheck, Image, BarChart3, Settings, ExternalLink, X, Brush, Sparkles
 } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  { href: "/dashboard/content-engine", label: "Content Engine", icon: Sparkles },
   { href: "/dashboard/collections", label: "Collections", icon: Library },
   { href: "/dashboard/products", label: "Products", icon: Package },
   { href: "/dashboard/drawings", label: "Drawings", icon: Palette },
