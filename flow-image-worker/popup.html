@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flow Image Worker</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-base:      #18181b;
+      --bg-card:      #27272a;
+      --bg-input:     #3f3f46;
+      --border:       #52525b;
+      --text-primary: #f4f4f5;
+      --text-secondary: #a1a1aa;
+      --text-muted:   #71717a;
+      --accent:       #6366f1;
+      --accent-hover: #4f46e5;
+      --green:        #22c55e;
+      --yellow:       #eab308;
+      --red:          #ef4444;
+      --blue:         #3b82f6;
+      --radius:       8px;
+      --radius-sm:    4px;
+    }
+
+    html, body {
+      width: 420px;
+      min-height: 500px;
+      max-height: 700px;
+      overflow: hidden;
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Layout ── */
+    .popup {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      overflow-y: auto;
+      max-height: 700px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo {
+      width: 24px;
+      height: 24px;
+      background: var(--accent);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      flex-shrink: 0;
+      transition: background 0.3s;
+    }
+
+    .status-dot.connected { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.disconnected { background: var(--red); }
+    .status-dot.checking { background: var(--yellow); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    /* ── Sections ── */
+    .section {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      cursor: pointer;
+      user-select: none;
+      background: var(--bg-card);
+      transition: background 0.15s;
+    }
+
+    .section-header:hover { background: var(--bg-input); }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .chevron {
+      color: var(--text-muted);
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+
+    .section-body {
+      padding: 12px 16px;
+      background: var(--bg-base);
+    }
+
+    .section.collapsed .section-body { display: none; }
+    .section.collapsed .chevron { transform: rotate(-90deg); }
+
+    /* ── Form Fields ── */
+    .field {
+      margin-bottom: 10px;
+    }
+
+    .field:last-child { margin-bottom: 0; }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    input[type="text"],
+    input[type="url"],
+    input[type="number"],
+    input[type="password"] {
+      width: 100%;
+      padding: 7px 10px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus {
+      border-color: var(--accent);
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    input[type="checkbox"] {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .save-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 7px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .save-btn:hover {
+      background: var(--border);
+      color: var(--text-primary);
+    }
+
+    /* ── Status Section ── */
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+
+    .worker-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    .badge-idle     { background: rgba(113,113,122,0.2); color: var(--text-muted); border: 1px solid var(--border); }
+    .badge-running  { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+    .badge-paused   { background: rgba(234,179,8,0.15); color: var(--yellow); border: 1px solid rgba(234,179,8,0.3); }
+    .badge-stopped  { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+
+    /* Progress Bar */
+    .progress-bar-container {
+      background: var(--bg-card);
+      border-radius: 4px;
+      height: 6px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    /* ── Current Job ── */
+    .job-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+    }
+
+    .job-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+
+    .job-row:last-child { margin-bottom: 0; }
+
+    .job-key {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      margin-right: 8px;
+    }
+
+    .job-value {
+      color: var(--text-primary);
+      text-align: right;
+      word-break: break-all;
+    }
+
+    .job-prompt {
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      padding: 6px 8px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      margin-top: 4px;
+      max-height: 60px;
+      overflow: hidden;
+      font-style: italic;
+    }
+
+    .no-job-text {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 8px 0;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 9px 12px;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--border);
+    }
+
+    .btn-danger {
+      background: rgba(239,68,68,0.15);
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(239,68,68,0.25);
+    }
+
+    /* ── Logs ── */
+    .logs-container {
+      max-height: 140px;
+      overflow-y: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0;
+    }
+
+    .log-entry {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-family: 'Consolas', 'Fira Code', monospace;
+      border-bottom: 1px solid rgba(82,82,91,0.3);
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .log-entry:last-child { border-bottom: none; }
+
+    .log-time {
+      color: var(--text-muted);
+      flex-shrink: 0;
+      font-size: 10px;
+      padding-top: 1px;
+    }
+
+    .log-msg { word-break: break-word; flex: 1; }
+
+    .log-info    .log-msg { color: var(--text-secondary); }
+    .log-success .log-msg { color: var(--green); }
+    .log-warning .log-msg { color: var(--yellow); }
+    .log-error   .log-msg { color: var(--red); }
+
+    .logs-empty {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 11px;
+      padding: 12px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 10px 16px;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn-link {
+      flex: 1;
+      padding: 7px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+
+    .btn-link:hover {
+      background: var(--bg-input);
+      color: var(--text-primary);
+    }
+
+    /* ── Saved toast ── */
+    .toast {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--green);
+      color: white;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      z-index: 100;
+    }
+
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div class="popup">
+
+  <!-- ── HEADER ── -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">⚡</div>
+      <div>
+        <div class="header-title">Flow Image Worker</div>
+        <div class="header-subtitle">Content Studio Bridge</div>
+      </div>
+    </div>
+    <div class="connection-status">
+      <div class="status-dot checking" id="connDot"></div>
+      <span id="connLabel">Verificando...</span>
+    </div>
+  </div>
+
+  <!-- ── SETTINGS SECTION (colapsado por padrão) ── -->
+  <div class="section collapsed" id="sectionSettings">
+    <div class="section-header" data-toggle="sectionSettings">
+      <span class="section-title">Configurações</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+      <div class="field">
+        <label for="studioUrl">URL do Content Studio</label>
+        <input type="url" id="studioUrl" placeholder="http://localhost:3000" />
+      </div>
+      <div class="field">
+        <label for="token">Bearer Token</label>
+        <input type="password" id="token" placeholder="••••••••••••••••" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="minDelay">Delay Mín. (ms)</label>
+          <input type="number" id="minDelay" value="3000" min="500" max="30000" step="500" />
+        </div>
+        <div class="field">
+          <label for="maxDelay">Delay Máx. (ms)</label>
+          <input type="number" id="maxDelay" value="8000" min="1000" max="60000" step="500" />
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="maxAttempts">Tentativas Máx.</label>
+          <input type="number" id="maxAttempts" value="3" min="1" max="10" />
+        </div>
+        <div class="field">
+          <label for="filePrefix">Prefixo do Arquivo</label>
+          <input type="text" id="filePrefix" value="flow" placeholder="flow" />
+        </div>
+      </div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="safeRewriteEnabled" checked />
+        <span>Reescrita segura em caso de bloqueio</span>
+      </label>
+      <button class="save-btn" id="saveBtn">Salvar Configurações</button>
+    </div>
+  </div>
+
+  <!-- ── STATUS SECTION ── -->
+  <div class="section" id="sectionStatus">
+    <div class="section-header" data-toggle="sectionStatus">
+      <span class="section-title">Status</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+      <div id="workerBadge" class="worker-status-badge badge-idle">
+        <span class="status-dot"></span>
+        <span id="workerStatusText">Idle</span>
+      </div>
+
+      <div class="status-grid">
+        <div class="stat-card">
+          <div class="stat-value green" id="statCompleted">0</div>
+          <div class="stat-label">Concluídos</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value red" id="statFailed">0</div>
+          <div class="stat-label">Falharam</div>
+        </div>
+      </div>
+
+      <div class="progress-label">
+        <span>Progresso</span>
+        <span id="progressText">0 / 0</span>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+      </div>
+
+      <div style="margin-top:8px; font-size:11px; color:var(--text-muted)">
+        Sessão: <span id="sessionIdText" style="color:var(--text-secondary)">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CURRENT JOB SECTION ── -->
+  <div class="section" id="sectionJob">
+    <div class="section-header" data-toggle="sectionJob">
+      <span class="section-title">Job Atual</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+      <div id="jobContent">
+        <p class="no-job-text">Nenhum job em processamento</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CONTROLS SECTION ── -->
+  <div class="section" id="sectionControls">
+    <div class="section-header" data-toggle="sectionControls">
+      <span class="section-title">Controles</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body">
+      <div class="controls">
+        <button class="btn btn-primary" id="btnStart">▶ Iniciar</button>
+        <button class="btn btn-secondary" id="btnPauseResume" disabled>⏸ Pausar</button>
+        <button class="btn btn-danger" id="btnStop" disabled>⏹ Parar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── LOGS SECTION ── -->
+  <div class="section" id="sectionLogs">
+    <div class="section-header" data-toggle="sectionLogs">
+      <span class="section-title">Logs</span>
+      <span class="chevron">▼</span>
+    </div>
+    <div class="section-body" style="padding: 0;">
+      <div class="logs-container" id="logsContainer">
+        <p class="logs-empty">Nenhum log disponível</p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .popup -->
+
+<!-- ── FOOTER ── -->
+<div class="footer">
+  <button class="btn-link" id="btnOpenFlow">🖼️ Abrir ImageFX</button>
+  <button class="btn-link" id="btnOpenStudio">🎬 Content Studio</button>
+</div>
+
+<div class="toast" id="toast">Salvo!</div>
+
+<script src="popup.js"></script>
+</body>
+</html>

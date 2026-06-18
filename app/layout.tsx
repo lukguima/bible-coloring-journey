@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Bible Coloring Journey | Genesis Coloring Book for Kids",
@@ -22,9 +23,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen" style={{ backgroundColor: "#F8F1E7" }}>
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <Providers>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+        </Providers>
       </body>
     </html>
   );
