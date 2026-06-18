@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import { ImagePlus, Download, Upload, Trash2, Copy, Check, ExternalLink, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle, Filter, Layers, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
-import { useImageQueue } from "@/hooks/useImageQueue";
+import { useImageQueue, compressImage } from "@/hooks/useImageQueue";
 import type { ImageGenerationJob, ImageJobStatus } from "@/types/image-queue";
 
 const STATUS_META: Record<ImageJobStatus, { label: string; color: string; bg: string; icon: React.ComponentType<{ size?: number }> }> = {
@@ -59,13 +59,14 @@ function MetricCard({ label, value, color }: { label: string; value: number; col
   );
 }
 
-function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatus }: {
+function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatus, onApprove }: {
   job: ImageGenerationJob;
   onClose: () => void;
   onUpdate: (id: string, payload: Partial<ImageGenerationJob>) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
   onUpdateStatus: (id: string, status: ImageJobStatus, extra?: Partial<ImageGenerationJob>) => void;
+  onApprove: (id: string) => void;
 }) {
   const [draft, setDraft] = useState({ ...job });
   const [copied, setCopied] = useState(false);
@@ -84,19 +85,19 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const processFile = useCallback((file: File) => {
+  const processFile = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target?.result as string;
-      const updated = { ...draft, generatedImageUrl: dataUrl, status: "uploaded" as ImageJobStatus };
-      setDraft(updated);
+    try {
+      const dataUrl = await compressImage(file);
+      setDraft((prev) => ({ ...prev, generatedImageUrl: dataUrl, status: "uploaded" }));
       onUpdate(job.id, { generatedImageUrl: dataUrl, status: "uploaded" });
+    } catch {
+      alert("Erro ao processar imagem. Tente outro arquivo.");
+    } finally {
       setUploading(false);
-    };
-    reader.readAsDataURL(file);
-  }, [draft, job.id, onUpdate]);
+    }
+  }, [job.id, onUpdate]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -248,8 +249,8 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
         )}
         {(draft.status === "generated" || draft.status === "uploaded") && (
           <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-            <button onClick={() => { onUpdateStatus(job.id, "approved"); onClose(); }} style={{ flex: 1, padding: "10px", border: "none", borderRadius: "10px", backgroundColor: "#16A34A", color: "#FFFFFF", fontWeight: 700, fontSize: "13px", fontFamily: "'Nunito', sans-serif", cursor: "pointer" }}>
-              ✓ Approve
+            <button onClick={() => { onApprove(job.id); onClose(); }} style={{ flex: 1, padding: "10px", border: "none", borderRadius: "10px", backgroundColor: "#16A34A", color: "#FFFFFF", fontWeight: 700, fontSize: "13px", fontFamily: "'Nunito', sans-serif", cursor: "pointer" }}>
+              ✓ Approve & Publish
             </button>
             <button onClick={() => { const r = prompt("Rejection reason (optional):"); onUpdateStatus(job.id, "rejected", { errorMessage: r || "Rejected" }); onClose(); }} style={{ flex: 1, padding: "10px", border: "none", borderRadius: "10px", backgroundColor: "#EF4444", color: "#FFFFFF", fontWeight: 700, fontSize: "13px", fontFamily: "'Nunito', sans-serif", cursor: "pointer" }}>
               ✕ Reject
@@ -263,13 +264,14 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
 
 function QuickUploadButton({ jobId, onUpload }: { jobId: string; onUpload: (id: string, dataUrl: string) => void }) {
   const ref = useRef<HTMLInputElement>(null);
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => onUpload(jobId, ev.target?.result as string);
-    reader.readAsDataURL(file);
     e.target.value = "";
+    try {
+      const dataUrl = await compressImage(file);
+      onUpload(jobId, dataUrl);
+    } catch { /* ignore */ }
   };
   return (
     <>
@@ -286,7 +288,7 @@ function QuickUploadButton({ jobId, onUpload }: { jobId: string; onUpload: (id: 
 }
 
 export default function ImageQueuePage() {
-  const { jobs, isLoaded, createJob, updateJob, deleteJob, duplicateJob, updateStatus, exportQueueAsJson, clearCompleted, resetQueue, getMetrics } = useImageQueue();
+  const { jobs, isLoaded, createJob, updateJob, deleteJob, duplicateJob, updateStatus, approveJob, exportQueueAsJson, clearCompleted, resetQueue, getMetrics } = useImageQueue();
   const [filterStatus, setFilterStatus] = useState<ImageJobStatus | "all">("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [selectedJob, setSelectedJob] = useState<ImageGenerationJob | null>(null);
@@ -461,6 +463,7 @@ export default function ImageQueuePage() {
           onDelete={(id) => { deleteJob(id); showToast("Job deleted."); }}
           onDuplicate={(id) => { duplicateJob(id); showToast("Job duplicated."); }}
           onUpdateStatus={(id, status, extra) => { updateStatus(id, status, extra); showToast(`Status → ${STATUS_META[status].label}`); }}
+          onApprove={(id) => { approveJob(id); showToast("✓ Aprovado e publicado no Drawing!"); }}
         />
       )}
 

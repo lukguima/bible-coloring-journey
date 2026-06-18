@@ -13,8 +13,41 @@ function readLocal<T>(key: string, fallback: T): T {
   } catch { return fallback; }
 }
 
-function writeLocal(key: string, value: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+function writeLocal(key: string, value: unknown): boolean {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED")) {
+      console.error("[BCJ] localStorage quota exceeded — image may be too large.");
+    }
+    return false;
+  }
+}
+
+/** Compress an image File to JPEG dataURL (max 1200px, quality 0.82). */
+export function compressImage(file: File, maxPx = 1200, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxPx || height > maxPx) {
+        if (width >= height) { height = Math.round((height * maxPx) / width); width = maxPx; }
+        else { width = Math.round((width * maxPx) / height); height = maxPx; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("Canvas not available")); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
 }
 
 /** Coloring-page-style types use portrait (print vertical). Everything else landscape. */
@@ -129,8 +162,6 @@ export function useImageQueue() {
     updateJob(jobId, { status, ...timestamps, ...extra });
   }, [updateJob]);
 
-  const approveJob = useCallback((jobId: string) => updateStatus(jobId, "approved"), [updateStatus]);
-
   const rejectJob = useCallback((jobId: string, reason: string) =>
     updateStatus(jobId, "rejected", { errorMessage: reason }), [updateStatus]);
 
@@ -161,6 +192,15 @@ export function useImageQueue() {
     }
     updateStatus(jobId, "published");
   }, [jobs, updateStatus]);
+
+  const approveJob = useCallback((jobId: string) => {
+    const job = jobs.find((j) => j.id === jobId);
+    if (job?.generatedImageUrl) {
+      publishJob(jobId);
+    } else {
+      updateStatus(jobId, "approved");
+    }
+  }, [jobs, publishJob, updateStatus]);
 
   const exportQueueAsJson = useCallback((filter: Partial<{ status: ImageJobStatus }> = {}): string => {
     const filtered = filter.status ? jobs.filter((j) => j.status === filter.status) : jobs;
