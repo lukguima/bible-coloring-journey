@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { ImagePlus, Download, Upload, Trash2, Copy, Check, ExternalLink, RefreshCw, AlertCircle, Clock, CheckCircle2, XCircle, Filter, Layers, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
@@ -59,7 +59,9 @@ function MetricCard({ label, value, color }: { label: string; value: number; col
   );
 }
 
-function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatus, onApprove }: {
+const BOOKS = ["Genesis", "Exodus", "Leviticus", "Numbers", "Deuteronomy", "Joshua", "Judges", "Ruth", "1 Samuel", "2 Samuel", "Psalms", "Proverbs", "Isaiah", "Matthew", "Mark", "Luke", "John", "Acts", "Revelation"];
+
+function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatus, onApprove, products }: {
   job: ImageGenerationJob;
   onClose: () => void;
   onUpdate: (id: string, payload: Partial<ImageGenerationJob>) => void;
@@ -67,6 +69,7 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
   onDuplicate: (id: string) => void;
   onUpdateStatus: (id: string, status: ImageJobStatus, extra?: Partial<ImageGenerationJob>) => void;
   onApprove: (id: string) => void;
+  products: { id: string; name: string }[];
 }) {
   const [draft, setDraft] = useState({ ...job });
   const [copied, setCopied] = useState(false);
@@ -190,6 +193,34 @@ function JobModal({ job, onClose, onUpdate, onDelete, onDuplicate, onUpdateStatu
         </div>
         <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
 
+        {/* Product / ordering section */}
+        <div style={{ backgroundColor: "#F8F9FB", border: "1px solid #E5E7EB", borderRadius: "10px", padding: "14px", marginBottom: "14px" }}>
+          <div style={{ fontSize: "11px", fontWeight: 700, color: "#263B5E", fontFamily: "'Nunito', sans-serif", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>📚 Ordenação do Produto</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+            <FieldGroup label="Produto">
+              <select value={draft.productId || ""} onChange={(e) => setDraft({ ...draft, productId: e.target.value || undefined })} style={inputSt}>
+                <option value="">— Sem produto —</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </FieldGroup>
+            <FieldGroup label="Livro">
+              <select value={draft.book || ""} onChange={(e) => setDraft({ ...draft, book: e.target.value || undefined })} style={inputSt}>
+                <option value="">— Selecionar —</option>
+                {BOOKS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </FieldGroup>
+            <FieldGroup label="Capítulo">
+              <input type="number" min={1} max={200} value={draft.chapter ?? ""} onChange={(e) => setDraft({ ...draft, chapter: e.target.value ? Number(e.target.value) : undefined })} placeholder="Ex: 1" style={inputSt} />
+            </FieldGroup>
+            <FieldGroup label="Versículo(s)">
+              <input value={draft.verse || ""} onChange={(e) => setDraft({ ...draft, verse: e.target.value || undefined })} placeholder="Ex: 1 ou 1-5" style={inputSt} />
+            </FieldGroup>
+          </div>
+          <FieldGroup label="Ordem na sequência">
+            <input type="number" min={0} value={draft.pageOrder ?? 0} onChange={(e) => setDraft({ ...draft, pageOrder: Number(e.target.value) })} placeholder="0" style={inputSt} />
+          </FieldGroup>
+        </div>
+
         <FieldGroup label="Title">
           <input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} style={inputSt} />
         </FieldGroup>
@@ -295,6 +326,17 @@ export default function ImageQueuePage() {
   const [showNew, setShowNew] = useState(false);
   const [newJob, setNewJob] = useState<Partial<ImageGenerationJob>>(BLANK_JOB);
   const [toast, setToast] = useState<string | null>(null);
+  const [products, setProducts] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("bcj_products");
+      if (raw) {
+        const parsed = JSON.parse(raw) as { id: string; name?: string; title?: string }[];
+        setProducts(parsed.map((p) => ({ id: p.id, name: p.name ?? p.title ?? p.id })));
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
@@ -392,6 +434,26 @@ export default function ImageQueuePage() {
           <FieldGroup label="Negative Prompt">
             <input value={newJob.negativePrompt || ""} onChange={(e) => setNewJob({ ...newJob, negativePrompt: e.target.value })} style={inputSt} />
           </FieldGroup>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px" }}>
+            <FieldGroup label="Produto">
+              <select value={newJob.productId || ""} onChange={(e) => setNewJob({ ...newJob, productId: e.target.value || undefined })} style={inputSt}>
+                <option value="">—</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </FieldGroup>
+            <FieldGroup label="Livro">
+              <select value={newJob.book || ""} onChange={(e) => setNewJob({ ...newJob, book: e.target.value || undefined })} style={inputSt}>
+                <option value="">—</option>
+                {BOOKS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </FieldGroup>
+            <FieldGroup label="Cap.">
+              <input type="number" min={1} value={newJob.chapter ?? ""} onChange={(e) => setNewJob({ ...newJob, chapter: e.target.value ? Number(e.target.value) : undefined })} placeholder="1" style={inputSt} />
+            </FieldGroup>
+            <FieldGroup label="Vers.">
+              <input value={newJob.verse || ""} onChange={(e) => setNewJob({ ...newJob, verse: e.target.value || undefined })} placeholder="1-5" style={inputSt} />
+            </FieldGroup>
+          </div>
           <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
             <button onClick={() => setShowNew(false)} style={{ padding: "10px 16px", border: "1px solid #E5E7EB", borderRadius: "10px", backgroundColor: "#FFFFFF", cursor: "pointer", fontSize: "13px", fontFamily: "'Nunito', sans-serif", color: "#6B7280" }}>Cancel</button>
             <button onClick={handleCreateJob} style={{ padding: "10px 16px", border: "none", borderRadius: "10px", backgroundColor: "#263B5E", color: "#FFFFFF", fontWeight: 700, fontSize: "13px", fontFamily: "'Nunito', sans-serif", cursor: "pointer", display: "flex", alignItems: "center", gap: "6px" }}>
@@ -463,7 +525,8 @@ export default function ImageQueuePage() {
           onDelete={(id) => { deleteJob(id); showToast("Job deleted."); }}
           onDuplicate={(id) => { duplicateJob(id); showToast("Job duplicated."); }}
           onUpdateStatus={(id, status, extra) => { updateStatus(id, status, extra); showToast(`Status → ${STATUS_META[status].label}`); }}
-          onApprove={(id) => { approveJob(id); showToast("✓ Aprovado e publicado no Drawing!"); }}
+          onApprove={(id) => { approveJob(id); showToast("✓ Publicado! Disponível para clientes PREMIUM."); }}
+          products={products}
         />
       )}
 

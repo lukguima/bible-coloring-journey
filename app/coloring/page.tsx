@@ -1,11 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ColoringCanvas from "@/components/coloring/ColoringCanvas";
 import ColoringPageSelector from "@/components/coloring/ColoringPageSelector";
 import { useProgress } from "@/hooks/useProgress";
 import { useColoringImages } from "@/hooks/useColoringImages";
 import Link from "next/link";
+
+interface DbColoringPage {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl: string;
+  productId?: string;
+  book?: string;
+  chapter?: number;
+  verse?: string;
+  pageOrder: number;
+}
 
 const PAGES = [
   {
@@ -66,11 +78,38 @@ const PAGES = [
 
 export default function ColoringPage() {
   const [selectedPageId, setSelectedPageId] = useState("creation");
+  const [dbPages, setDbPages] = useState<DbColoringPage[]>([]);
   const { saveColoringProgress, getColoringProgress } = useProgress();
   const { getImage, isLoaded } = useColoringImages();
 
-  const selectedPage = PAGES.find((p) => p.id === selectedPageId)!;
-  const customImage = isLoaded ? getImage(selectedPage.id) : undefined;
+  useEffect(() => {
+    fetch("/api/coloring-pages")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: DbColoringPage[]) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setDbPages(data);
+          setSelectedPageId(data[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const allDbPages = dbPages.map((p) => ({
+    id: p.id,
+    title: p.title,
+    emoji: "🎨",
+    description: p.description ?? (p.book ? `${p.book}${p.chapter ? ` ${p.chapter}` : ""}${p.verse ? `:${p.verse}` : ""}` : ""),
+    areas: [] as { id: string; path: string; label: string }[],
+    customImageUrl: p.imageUrl,
+  }));
+
+  const allPages = [...allDbPages, ...PAGES];
+
+  const selectedPage = allPages.find((p) => p.id === selectedPageId) ?? allPages[0];
+  const isDbPage = dbPages.some((p) => p.id === selectedPageId);
+  const customImage = isDbPage
+    ? (selectedPage as typeof allDbPages[0]).customImageUrl
+    : isLoaded ? getImage(selectedPage.id) : undefined;
 
   const handleDownloadAll = () => {
     const svgPages = PAGES.map((page) => {
@@ -127,7 +166,7 @@ export default function ColoringPage() {
 
         {/* Page selector */}
         <ColoringPageSelector
-          pages={PAGES.map((p) => ({ id: p.id, title: p.title, emoji: p.emoji, description: p.description }))}
+          pages={allPages.map((p) => ({ id: p.id, title: p.title, emoji: p.emoji, description: p.description }))}
           selectedId={selectedPageId}
           onSelect={setSelectedPageId}
         />

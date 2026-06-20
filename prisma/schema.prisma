@@ -31,6 +31,21 @@ model Purchase {
   updatedAt   DateTime       @updatedAt
 }
 
+model ColoringPage {
+  id          String   @id @default(cuid())
+  jobId       String   @unique
+  title       String
+  description String?
+  imageUrl    String
+  productId   String?
+  book        String?
+  chapter     Int?
+  verse       String?
+  pageOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 enum Role {
   ADMIN
   CUSTOMER

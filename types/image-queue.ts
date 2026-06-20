@@ -32,6 +32,11 @@ export interface ImageGenerationJob {
   orientation: "PORTRAIT" | "LANDSCAPE";
   status: ImageJobStatus;
   priority: "low" | "normal" | "high";
+  productId?: string;
+  book?: string;
+  chapter?: number;
+  verse?: string;
+  pageOrder?: number;
   flowProjectName?: string;
   generatedImageUrl?: string;
   localFileName?: string;

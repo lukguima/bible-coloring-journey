@@ -190,6 +190,26 @@ export function useImageQueue() {
         createdAt: new Date().toISOString(),
       }, ...media]);
     }
+
+    // Save coloring pages to DB so PREMIUM customers can access them
+    if (job.imageType === "coloring_page") {
+      fetch("/api/coloring-pages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: job.id,
+          title: job.title,
+          description: job.prompt,
+          imageUrl: job.generatedImageUrl,
+          productId: job.productId,
+          book: job.book,
+          chapter: job.chapter,
+          verse: job.verse,
+          pageOrder: job.pageOrder ?? 0,
+        }),
+      }).catch(console.error);
+    }
+
     updateStatus(jobId, "published");
   }, [jobs, updateStatus]);
 
